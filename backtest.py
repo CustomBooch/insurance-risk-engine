@@ -8,6 +8,10 @@ insurance prediction models.
 import numpy as np
 import pandas as pd
 from models.frequency import FrequencyModel
+from models.severity import SeverityModel
+
+import logging
+logger = logging.getLogger(__name__)
 
 def expanding_window_backtest(df, start_period=2):
     results = []
@@ -19,34 +23,71 @@ def expanding_window_backtest(df, start_period=2):
         train = df[df["time"] < t]
         test = df[df["time"] == t]
 
-        X_train = train[["age", "vehicle_value", "risk_score"]]
-        y_train = train["claims"]
+        features = ["age", "vehicle_value", "risk_score"]
 
-        X_test = test[["age", "vehicle_value", "risk_score"]]
-        y_test = test["claims"]
+        # -----------------------
+        # FREQUENCY
+        # -----------------------
 
-        model = FrequencyModel()
+        freq_model = FrequencyModel()
 
-        # ---- GLM ----
-        model.fit_glm(X_train, y_train)
-        glm_preds = model.predict_glm(X_test)
-        glm_score = model.evaluate(y_test, glm_preds)
+        X_train_freq = train[features]
+        y_train_freq = train["claims"]
 
-        # ---- LightGBM ----
-        model.fit_lgbm(X_train, y_train)
-        lgb_preds = model.predict_lgbm(X_test)
-        lgb_score = model.evaluate(y_test, lgb_preds)
+        X_test_freq = test[features]
+        y_test_freq = test["claims"]
+
+        freq_model.fit_glm(X_train_freq, y_train_freq)
+        glm_freq_preds = freq_model.predict_glm(X_test_freq)
+        glm_freq_score = freq_model.evaluate(y_test_freq, glm_freq_preds)
+
+        freq_model.fit_lgbm(X_train_freq, y_train_freq)
+        lgbm_freq_preds = freq_model.predict_lgbm(X_test_freq)
+        lgbm_freq_score = freq_model.evaluate(y_test_freq, lgbm_freq_preds)
+
+        # -----------------------
+        # SEVERITY (only claims > 0)
+        # -----------------------
+
+        train_sev = train[train["claims"] > 0]
+        test_sev = test[test["claims"] > 0]
+
+        sev_model = SeverityModel()
+
+        if len(train_sev) > 0 and len(test_sev) > 0:
+
+            X_train_sev = train_sev[features]
+            y_train_sev = train_sev["severity"]
+
+            X_test_sev = test_sev[features]
+            y_test_sev = test_sev["severity"]
+
+            sev_model.fit_glm(X_train_sev, y_train_sev)
+            glm_sev_preds = sev_model.predict_glm(X_test_sev)
+            glm_sev_score = sev_model.evaluate(y_test_sev, glm_sev_preds)
+
+            sev_model.fit_lgbm(X_train_sev, y_train_sev)
+            lgbm_sev_preds = sev_model.predict_lgbm(X_test_sev)
+            lgbm_sev_score = sev_model.evaluate(y_test_sev, lgbm_sev_preds)
+
+        else:
+            glm_sev_score = np.nan
+            lgbm_sev_score = np.nan
+
+        logger.info(
+            f"Period {t} | "
+            f"Freq GLM: {glm_freq_score:.4f} | "
+            f"Freq LGBM: {lgbm_freq_score:.4f} | "
+            f"Sev GLM: {glm_sev_score:.4f} | "
+            f"Sev LGBM: {lgbm_sev_score:.4f}"
+        )
 
         results.append({
             "period": t,
-            "glm_deviance": glm_score,
-            "lgbm_deviance": lgb_score
+            "glm_freq_dev": glm_freq_score,
+            "lgbm_freq_dev": lgbm_freq_score,
+            "glm_sev_dev": glm_sev_score,
+            "lgbm_sev_dev": lgbm_sev_score,
         })
-
-        print(
-            f"Period {t} | "
-            f"GLM: {glm_score:.4f} | "
-            f"LGBM: {lgb_score:.4f}"
-        )
 
     return pd.DataFrame(results)
