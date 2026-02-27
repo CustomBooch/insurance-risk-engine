@@ -25,6 +25,7 @@ class FrequencyModel:
             objective="poisson",
             n_estimators=200,
             learning_rate=0.05,
+            verbosity=-1
         )
         self.lgbm.fit(X, y)
 
