@@ -39,4 +39,4 @@ This project develops a cross-sectional insurance prediction engine analogous to
 
 ## Status
 
-Initial development phase. Frequency modelling module in progress.
+Initial development phase. Frequency modelling module implemented with expanding-window GLM vs LightGBM comparison.
