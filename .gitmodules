@@ -1,0 +1,3 @@
+[submodule "external/insurance_premium_models"]
+	path = external/insurance_premium_models
+	url = https://github.com/CustomBooch/insurance_premium_models.git
